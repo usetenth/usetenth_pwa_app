@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f7f7fb;
+  --card: #ffffff;
+  --ink: #12131a;
+  --mute: #6b6d7b;
+  --line: #e7e7f0;
+  --chip: #f1f1f7;
+  --violet: #5b3df5;
+  --lime: #d9ff3f;
+  --gain: #0e9f6e;
+  --loss: #e5484d;
+  --glow-a: rgba(91, 61, 245, 0.1);
+  --glow-b: rgba(52, 211, 153, 0.12);
+}
+
+
+.dark {
+  --bg: #0b0d17;
+  --card: #151827;
+  --ink: #f7f7fb;
+  --mute: #9a9cad;
+  --line: #262a40;
+  --chip: #1d2135;
+  --gain: #34d399;
+  --loss: #ff6b70;
+  --glow-a: rgba(91, 61, 245, 0.22);
+  --glow-b: rgba(52, 211, 153, 0.08);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-mute: var(--mute);
+  --color-line: var(--line);
+  --color-chip: var(--chip);
+  --color-violet: var(--violet);
+  --color-lime: var(--lime);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  background: var(--bg);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(70% 38% at 0% 0%, var(--glow-a), transparent 70%),
+    radial-gradient(60% 36% at 100% 4%, var(--glow-b), transparent 70%), var(--bg);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.num {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes launch-pop {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes launch-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.launch-ring {
+  animation: launch-pop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.launch-word {
+  animation: launch-rise 0.5s ease-out 0.15s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launch-ring,
+  .launch-word {
+    animation: none;
+  }
+}
+
+@keyframes ring-dot {
+  0%, 12% { fill: var(--violet); }
+  24%, 100% { fill: var(--ink); }
+}
+
+.ring-dot {
+  animation: ring-dot 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-dot {
+    animation: none;
+  }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sheet-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sheet-up {
+  animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.sheet-fade {
+  animation: sheet-fade 0.2s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-up,
+  .sheet-fade {
+    animation: none;
+  }
+}
+
+@keyframes banner-down {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.banner-down {
+  animation: banner-down 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-down {
+    animation: none;
+  }
+}
+
+@keyframes bounce-down {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+.bounce-down {
+  animation: bounce-down 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bounce-down {
+    animation: none;
+  }
+}
