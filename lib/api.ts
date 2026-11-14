@@ -58,7 +58,7 @@ export interface Holding {
 export interface DepositView {
   asset: string;
   default_network: string;
-  networks: { network: string; address: string }[];
+  networks: { network: string; address: string; assets: string[] }[];
 }
 
 export type OrderStatus = "in_progress" | "completed" | "failed" | "simulated";
@@ -112,7 +112,11 @@ export interface WithdrawAsset {
   asset_key: string;
   symbol: string;
   chain: string | null;
-  chain_family: "evm" | "solana";
+  chain_family: "evm" | "solana" | "any";
+  // What the user holds of it, when the gateway could be asked.
+  available: string | null;
+  // False for a balance that cannot be sent out from here.
+  withdrawable: boolean;
 }
 
 export interface WithdrawalView {

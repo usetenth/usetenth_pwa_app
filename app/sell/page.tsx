@@ -13,7 +13,7 @@ const isQty = (v: string) => /^\d+(\.\d+)?$/.test(v) && Number(v) > 0;
 
 function Sell() {
   const wanted = useSearchParams().get("asset") ?? "";
-  const holdings = useLoad(fetchHoldings);
+  const holdings = useLoad(fetchHoldings, null, true, 10_000);
   const [assetKey, setAssetKey] = useState(wanted);
   const [all, setAll] = useState(true);
   const [qty, setQty] = useState("");

@@ -9,8 +9,11 @@ export interface Loaded<T> {
   reload: () => void;
 }
 
-/** Loads on mount and whenever `key` changes; `enabled` holds it back until something it needs is ready. */
-export function useLoad<T>(fetcher: (signal: AbortSignal) => Promise<T>, key: unknown = null, enabled = true): Loaded<T> {
+/**
+ * Loads on mount and whenever `key` changes; `enabled` holds it back until something it needs is ready.
+ * With `refreshMs` it also reloads on that interval and when the app comes back to the front, keeping what is shown meanwhile.
+ */
+export function useLoad<T>(fetcher: (signal: AbortSignal) => Promise<T>, key: unknown = null, enabled = true, refreshMs?: number): Loaded<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -30,6 +33,17 @@ export function useLoad<T>(fetcher: (signal: AbortSignal) => Promise<T>, key: un
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled, tick]);
+
+  useEffect(() => {
+    if (!refreshMs || !enabled) return;
+    const again = () => document.visibilityState === "visible" && setTick((t) => t + 1);
+    const timer = setInterval(again, refreshMs);
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", again);
+    };
+  }, [refreshMs, enabled]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   return { data, error, loading, reload };

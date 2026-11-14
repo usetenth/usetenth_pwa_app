@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { RequireActive } from "@/components/Guard";
 import { hasProof, ProofInput } from "@/components/Proof";
+import { TokenPicker, type TokenOption } from "@/components/TokenPicker";
 import { Card, ErrorCard, Field, PrimaryButton, Row, Screen, SecondaryButton } from "@/components/ui";
 import {
   confirmAction,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/api";
 import { useLoad, usePoll } from "@/lib/hooks";
 import { chainName } from "@/lib/networks";
-import { gt, isAmount, usd } from "@/lib/money";
+import { fromCents, gt, isAmount, toCents, usd } from "@/lib/money";
 
 const DRAFT = "usetenth:withdraw-draft";
 const DRAFT_MAX_AGE_MS = 10 * 60_000;
@@ -26,10 +27,11 @@ const DRAFT_MAX_AGE_MS = 10 * 60_000;
 const short = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
 
 function Withdraw() {
-  const portfolio = useLoad(fetchPortfolio);
+  const portfolio = useLoad(fetchPortfolio, null, true, 10_000);
   const addresses = useLoad(fetchAddresses);
-  const assets = useLoad(fetchWithdrawAssets);
+  const assets = useLoad(fetchWithdrawAssets, null, true, 10_000);
   const [addressId, setAddressId] = useState("");
+  const [assetKey, setAssetKey] = useState("");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<ConfirmView | null>(null);
   const [proof, setProof] = useState<Proof>({});
@@ -41,8 +43,20 @@ function Withdraw() {
   const cash = portfolio.data?.cash ?? "0.00";
   const usable = (addresses.data ?? []).filter((a) => a.usable);
   const address = usable.find((a) => a.id === addressId);
-  const asset = address ? assets.data?.find((a) => a.chain_family === address.chain_family) : undefined;
-  const amountOk = isAmount(amount) && !gt(amount, cash);
+  // Every stablecoin the user holds, with the reason when one cannot go to the chosen address.
+  const choices: TokenOption[] = [...(assets.data ?? [])]
+    .map((a) => ({
+      ...a,
+      blocked: !a.withdrawable
+        ? "Cannot be withdrawn from here"
+        : address && a.chain_family !== "any" && a.chain_family !== address.chain_family
+          ? "Not for this kind of address"
+          : undefined,
+    }))
+    .sort((x, y) => Number(!!x.blocked) - Number(!!y.blocked) || Number.parseFloat(y.available ?? "0") - Number.parseFloat(x.available ?? "0") || x.symbol.localeCompare(y.symbol));
+  const asset = choices.find((a) => a.asset_key === assetKey && !a.blocked) ?? choices.find((a) => !a.blocked);
+  const max = asset?.available != null ? fromCents(toCents(asset.available)) : cash;
+  const amountOk = isAmount(amount) && !gt(amount, max);
   const canStart = !!address && !!asset && amountOk && !busy;
 
   // Going to Telegram to approve can reload this page, so the request in progress is kept for a few minutes.
@@ -50,9 +64,10 @@ function Withdraw() {
     try {
       const raw = sessionStorage.getItem(DRAFT);
       if (!raw) return;
-      const d = JSON.parse(raw) as { at: number; addressId: string; amount: string; attempt: string; method: ConfirmView };
+      const d = JSON.parse(raw) as { at: number; addressId: string; assetKey?: string; amount: string; attempt: string; method: ConfirmView };
       if (Date.now() - d.at > DRAFT_MAX_AGE_MS) return sessionStorage.removeItem(DRAFT);
       setAddressId(d.addressId);
+      setAssetKey(d.assetKey ?? "");
       setAmount(d.amount);
       attempt.current = d.attempt;
       setMethod(d.method);
@@ -61,10 +76,10 @@ function Withdraw() {
 
   useEffect(() => {
     try {
-      if (method && addressId && !queued) sessionStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), addressId, amount, attempt: attempt.current, method }));
+      if (method && addressId && !queued) sessionStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), addressId, assetKey: asset?.asset_key ?? "", amount, attempt: attempt.current, method }));
       else sessionStorage.removeItem(DRAFT);
     } catch {}
-  }, [method, addressId, amount, queued]);
+  }, [method, addressId, amount, queued, asset?.asset_key]);
 
   useEffect(() => {
     if (!addressId && usable[0]) setAddressId(usable[0].id);
@@ -188,8 +203,13 @@ function Withdraw() {
                 className="num h-14 flex-1 bg-transparent pl-1 text-lg outline-none"
               />
             </div>
-            {amount !== "" && !amountOk ? <p className="mt-1 px-1 text-sm text-loss">Enter an amount up to {usd(cash)}.</p> : null}
-            <button onClick={() => edit(() => setAmount(cash))} className="mt-2 rounded-full bg-chip px-4 py-2 text-sm">Withdraw all</button>
+            {amount !== "" && !amountOk ? <p className="mt-1 px-1 text-sm text-loss">Enter an amount up to {usd(max)}.</p> : null}
+            <button onClick={() => edit(() => setAmount(max))} className="mt-2 rounded-full bg-chip px-4 py-2 text-sm">Withdraw all</button>
+          </div>
+
+          <div>
+            <p className="mb-2 px-1 text-sm">Withdraw from</p>
+            <TokenPicker options={choices} value={asset?.asset_key ?? ""} onChange={(key) => edit(() => setAssetKey(key))} />
           </div>
 
           <div>
@@ -202,7 +222,7 @@ function Withdraw() {
             {address && asset ? (
               <p className="mt-2 px-1 text-sm text-mute">{asset.symbol} on {chainName(asset.chain, address.chain_family)}. Sending to another network will lose the funds.</p>
             ) : address ? (
-              <p className="mt-2 px-1 text-sm text-loss">Withdrawals to this kind of address are not available yet.</p>
+              <p className="mt-2 px-1 text-sm text-loss">None of the tokens you hold can be sent to this kind of address.</p>
             ) : null}
             <Link href="/withdraw/addresses" className="mt-2 inline-block px-1 text-sm font-medium text-violet">Manage addresses</Link>
           </div>

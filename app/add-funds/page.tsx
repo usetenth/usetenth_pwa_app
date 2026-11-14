@@ -9,6 +9,9 @@ import { copyText } from "@/lib/clipboard";
 import { useLoad } from "@/lib/hooks";
 import { networkName } from "@/lib/networks";
 
+/** "USDC, PYUSD": what this network takes, falling back to the main asset. */
+const accepted = (assets: string[], fallback: string) => (assets.length > 0 ? assets.join(", ") : fallback);
+
 function AddFunds() {
   const deposit = useLoad(fetchDeposit);
   const [selected, setSelected] = useState<string | null>(null);
@@ -50,7 +53,7 @@ function AddFunds() {
           {current ? (
             <Card className="flex flex-col items-center text-center">
               <AddressQr value={current.address} size={180} />
-              <p className="mt-4 rounded-full bg-violet/10 px-3 py-1 text-xs font-medium text-violet">{data.asset} on {networkName(current.network)}</p>
+              <p className="mt-4 rounded-full bg-violet/10 px-3 py-1 text-xs font-medium text-violet">{accepted(current.assets, data.asset)} on {networkName(current.network)}</p>
               <p className="num mt-3 break-all text-sm">{current.address}</p>
               <div className="mt-4 grid w-full grid-cols-2 gap-3">
                 <button
@@ -75,13 +78,13 @@ function AddFunds() {
 
           {current ? (
             <p className="rounded-2xl border border-loss/40 p-3 text-sm">
-              Only send {data.asset} on {networkName(current.network)}. Any other asset or network can be lost for good.
+              Only send stablecoins ({accepted(current.assets, data.asset)}) on {networkName(current.network)}. Any other asset or network can be lost for good.
             </p>
           ) : null}
 
           <p className="px-1 text-sm text-mute">You will see each payment under Activity, and get a message in Telegram if you have connected it.</p>
 
-          {current ? <ShareSheet open={sharing} onClose={() => setSharing(false)} asset={data.asset} network={networkName(current.network)} address={current.address} /> : null}
+          {current ? <ShareSheet open={sharing} onClose={() => setSharing(false)} asset={accepted(current.assets, data.asset)} network={networkName(current.network)} address={current.address} /> : null}
         </>
       ) : null}
     </Screen>

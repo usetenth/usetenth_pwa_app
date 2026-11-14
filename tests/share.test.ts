@@ -16,6 +16,6 @@ describe("shareMessage", () => {
     const text = shareMessage("USDC", "Solana", "ADDR123");
     expect(text).toContain("Send USDC on Solana");
     expect(text).toContain("ADDR123");
-    expect(text).toContain("Only send USDC on Solana");
+    expect(text).toContain("Only send stablecoins on Solana");
   });
 });

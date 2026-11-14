@@ -11,11 +11,11 @@ import { isNegative, percentOf, signedUsd, usd } from "@/lib/money";
 import { telegramFirstName } from "@/lib/telegram";
 
 function Portfolio() {
-  const portfolio = useLoad(fetchPortfolio);
-  const holdings = useLoad(fetchHoldings);
+  const portfolio = useLoad(fetchPortfolio, null, true, 10_000);
+  const holdings = useLoad(fetchHoldings, null, true, 10_000);
   const rule = useLoad(fetchRule);
   const me = useLoad(fetchMe);
-  const notices = useLoad(fetchNotifications);
+  const notices = useLoad(fetchNotifications, null, true, 15_000);
 
   const percent = rule.data?.percentage ?? 10;
   const nextPercent = PERCENTS.find((p) => p > percent);
