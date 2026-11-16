@@ -271,11 +271,22 @@ export function ErrorCard({ title = "Something went wrong.", children, onRetry }
   );
 }
 
-export function Splash({ label = "Loading…" }: { label?: string }) {
+/** The brand artwork of the launch screen: the travelling dot, the name and the tagline. */
+export function SplashArt({ intro = false }: { intro?: boolean }) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col items-center justify-center gap-3">
-      <Mark className="h-10 w-10" />
-      <p className="text-sm text-mute">{label}</p>
+    <>
+      <DotRing percent={10} animated className={`${intro ? "launch-ring " : ""}h-24 w-24`} />
+      <p className={`${intro ? "launch-word " : ""}text-2xl font-semibold tracking-tight`}>usetenth</p>
+      <p className={`${intro ? "launch-word " : ""}text-sm text-mute`} style={intro ? { animationDelay: "0.25s" } : undefined}>Keep a tenth. Invest it.</p>
+    </>
+  );
+}
+
+/** What shows while a screen is getting ready: the same display as the launch screen, with no loading text. */
+export function Splash() {
+  return (
+    <div role="status" aria-label="usetenth" className="fixed inset-0 z-30 flex flex-col items-center justify-center gap-6 bg-bg">
+      <SplashArt />
     </div>
   );
 }

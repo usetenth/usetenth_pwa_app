@@ -9,6 +9,9 @@ interface AuthValue {
   // False until we know whether Telegram already told us who this is.
   ready: boolean;
   signedIn: boolean;
+  // Why signing in from Telegram's launch data failed, so the app can say so instead of showing a sign-in form.
+  signInError: string | null;
+  retrySignIn: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -17,23 +20,34 @@ const Auth = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const [ready, setReady] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     // Inside Telegram the launch data is the sign-in; outside it, whatever session is stored stands.
     const done = () => !cancelled && setReady(true);
-    if (telegramWebApp()) signInWithTelegram().catch(() => undefined).finally(done);
-    else done();
+    if (telegramWebApp()) {
+      setSignInError(null);
+      signInWithTelegram()
+        .catch((e: Error) => !cancelled && setSignInError(e.message))
+        .finally(done);
+    } else done();
     return () => {
       cancelled = true;
     };
+  }, [attempt]);
+
+  const retrySignIn = useCallback(() => {
+    setReady(false);
+    setAttempt((n) => n + 1);
   }, []);
 
   const signOut = useCallback(async () => {
     await logout();
   }, []);
 
-  const value = useMemo(() => ({ ready, signedIn: session !== null, signOut }), [ready, session, signOut]);
+  const value = useMemo(() => ({ ready, signedIn: session !== null, signOut, signInError, retrySignIn }), [ready, session, signOut, signInError, retrySignIn]);
   return <Auth.Provider value={value}>{children}</Auth.Provider>;
 }
 

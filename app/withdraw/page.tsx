@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { RequireActive } from "@/components/Guard";
 import { hasProof, ProofInput } from "@/components/Proof";
 import { TokenPicker, type TokenOption } from "@/components/TokenPicker";
+import { clearWithdrawDraft, readWithdrawDraft, saveWithdrawDraft } from "@/lib/draft";
 import { Card, ErrorCard, Field, PrimaryButton, Row, Screen, SecondaryButton } from "@/components/ui";
 import {
   confirmAction,
@@ -20,9 +21,6 @@ import {
 import { useLoad, usePoll } from "@/lib/hooks";
 import { chainName } from "@/lib/networks";
 import { fromCents, gt, isAmount, toCents, usd } from "@/lib/money";
-
-const DRAFT = "usetenth:withdraw-draft";
-const DRAFT_MAX_AGE_MS = 10 * 60_000;
 
 const short = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
 
@@ -42,48 +40,32 @@ function Withdraw() {
 
   const cash = portfolio.data?.cash ?? "0.00";
   const usable = (addresses.data ?? []).filter((a) => a.usable);
-  const address = usable.find((a) => a.id === addressId);
-  // Every stablecoin the user holds, with the reason when one cannot go to the chosen address.
+  // Every stablecoin the user holds, the one with the most money in it first. The token is chosen first, then an address that fits it.
   const choices: TokenOption[] = [...(assets.data ?? [])]
-    .map((a) => ({
-      ...a,
-      blocked: !a.withdrawable
-        ? "Cannot be withdrawn from here"
-        : address && a.chain_family !== "any" && a.chain_family !== address.chain_family
-          ? "Not for this kind of address"
-          : undefined,
-    }))
+    .map((a) => ({ ...a, blocked: a.withdrawable ? undefined : "Cannot be withdrawn from here" }))
     .sort((x, y) => Number(!!x.blocked) - Number(!!y.blocked) || Number.parseFloat(y.available ?? "0") - Number.parseFloat(x.available ?? "0") || x.symbol.localeCompare(y.symbol));
   const asset = choices.find((a) => a.asset_key === assetKey && !a.blocked) ?? choices.find((a) => !a.blocked);
+  const compatible = usable.filter((a) => !asset || asset.chain_family === "any" || a.chain_family === asset.chain_family);
+  const address = compatible.find((a) => a.id === addressId) ?? compatible[0];
   const max = asset?.available != null ? fromCents(toCents(asset.available)) : cash;
   const amountOk = isAmount(amount) && !gt(amount, max);
   const canStart = !!address && !!asset && amountOk && !busy;
 
-  // Going to Telegram to approve can reload this page, so the request in progress is kept for a few minutes.
+  // Going to Telegram to approve can close the installed app, so the request in progress is kept for a few minutes.
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(DRAFT);
-      if (!raw) return;
-      const d = JSON.parse(raw) as { at: number; addressId: string; assetKey?: string; amount: string; attempt: string; method: ConfirmView };
-      if (Date.now() - d.at > DRAFT_MAX_AGE_MS) return sessionStorage.removeItem(DRAFT);
-      setAddressId(d.addressId);
-      setAssetKey(d.assetKey ?? "");
-      setAmount(d.amount);
-      attempt.current = d.attempt;
-      setMethod(d.method);
-    } catch {}
+    const d = readWithdrawDraft();
+    if (!d) return;
+    setAddressId(d.addressId);
+    setAssetKey(d.assetKey);
+    setAmount(d.amount);
+    attempt.current = d.attempt;
+    setMethod(d.method);
   }, []);
 
   useEffect(() => {
-    try {
-      if (method && addressId && !queued) sessionStorage.setItem(DRAFT, JSON.stringify({ at: Date.now(), addressId, assetKey: asset?.asset_key ?? "", amount, attempt: attempt.current, method }));
-      else sessionStorage.removeItem(DRAFT);
-    } catch {}
-  }, [method, addressId, amount, queued, asset?.asset_key]);
-
-  useEffect(() => {
-    if (!addressId && usable[0]) setAddressId(usable[0].id);
-  }, [addressId, usable]);
+    if (method && address && !queued) saveWithdrawDraft({ addressId: address.id, assetKey: asset?.asset_key ?? "", amount, attempt: attempt.current, method });
+    else if (!method || queued) clearWithdrawDraft();
+  }, [method, address?.id, amount, queued, asset?.asset_key]);
 
   // Any change to what is being withdrawn is a different request, so it needs its own confirmation.
   const edit = (fn: () => void) => {
@@ -125,12 +107,12 @@ function Withdraw() {
   // The approval in Telegram is the confirmation, so the withdrawal goes out as soon as it arrives, once.
   const autoSent = useRef(false);
   useEffect(() => {
-    if (proof.confirmation_id && method?.method === "telegram_code" && !autoSent.current && !busy && !queued) {
+    if (proof.confirmation_id && method?.method === "telegram_code" && address && asset && !autoSent.current && !busy && !queued) {
       autoSent.current = true;
       void submit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proof.confirmation_id, method, busy, queued]);
+  }, [proof.confirmation_id, method, address?.id, asset?.asset_key, busy, queued]);
 
   const queuedId = queued?.id;
   const live = usePoll(queuedId ? () => fetchWithdrawal(queuedId) : null, (w) => w.status !== "in_progress") ?? queued;
@@ -214,15 +196,18 @@ function Withdraw() {
 
           <div>
             <label htmlFor="to" className="mb-2 block px-1 text-sm">Send to</label>
-            <select id="to" value={addressId} onChange={(e) => edit(() => setAddressId(e.target.value))} className="h-14 w-full rounded-2xl border border-line bg-card px-4">
-              {usable.map((a) => (
+            <select id="to" value={address?.id ?? ""} onChange={(e) => edit(() => setAddressId(e.target.value))} disabled={compatible.length === 0} className="h-14 w-full rounded-2xl border border-line bg-card px-4 disabled:opacity-60">
+              {compatible.length === 0 ? <option value="">No saved address fits this token</option> : null}
+              {compatible.map((a) => (
                 <option key={a.id} value={a.id}>{a.label ? `${a.label} · ` : ""}{short(a.address)}</option>
               ))}
             </select>
             {address && asset ? (
               <p className="mt-2 px-1 text-sm text-mute">{asset.symbol} on {chainName(asset.chain, address.chain_family)}. Sending to another network will lose the funds.</p>
-            ) : address ? (
-              <p className="mt-2 px-1 text-sm text-loss">None of the tokens you hold can be sent to this kind of address.</p>
+            ) : asset && compatible.length === 0 ? (
+              <p className="mt-2 px-1 text-sm text-loss">
+                {asset.symbol} needs {asset.chain_family === "solana" ? "a Solana" : "an EVM"} address. Save one below, and it can be used after the waiting period.
+              </p>
             ) : null}
             <Link href="/withdraw/addresses" className="mt-2 inline-block px-1 text-sm font-medium text-violet">Manage addresses</Link>
           </div>

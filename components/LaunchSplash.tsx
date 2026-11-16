@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DotRing } from "@/components/ui";
+import { SplashArt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { releaseLaunch, useLaunchReleased } from "@/lib/launch";
 
@@ -52,9 +52,7 @@ export function LaunchSplash() {
       aria-label="Loading usetenth"
       className={`launch-splash fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-bg transition-opacity duration-300 ${leaving ? "pointer-events-none opacity-0" : "opacity-100"}`}
     >
-      <DotRing percent={10} animated className="launch-ring h-24 w-24" />
-      <p className="launch-word text-2xl font-semibold tracking-tight">usetenth</p>
-      <p className="launch-word text-sm text-mute" style={{ animationDelay: "0.25s" }}>Keep a tenth. Invest it.</p>
+      <SplashArt intro />
     </div>
   );
 }

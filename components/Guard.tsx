@@ -12,14 +12,23 @@ import { routeFor } from "@/lib/stage";
 
 /** Signed-in users only; everyone else goes to the sign-in screen and comes back here after. */
 export function Guard({ children }: { children: ReactNode }) {
-  const { ready, signedIn } = useAuth();
+  const { ready, signedIn, signInError, retrySignIn } = useAuth();
   const router = useRouter();
   const path = usePathname();
+  // Inside Telegram a failed sign-in is a connection or setup problem, so say so instead of showing a form.
+  const telegramFailed = ready && !signedIn && signInError !== null;
 
   useEffect(() => {
-    if (ready && !signedIn) router.replace(`/login?next=${encodeURIComponent(path)}`);
-  }, [ready, signedIn, router, path]);
+    if (ready && !signedIn && !telegramFailed) router.replace(`/login?next=${encodeURIComponent(path)}`);
+  }, [ready, signedIn, telegramFailed, router, path]);
 
+  if (telegramFailed) {
+    return isUnreachable(signInError) ? (
+      <ErrorScreen kind="offline" {...OFFLINE_COPY} onRetry={retrySignIn} retry />
+    ) : (
+      <ErrorScreen kind="error" title="We could not sign you in" message="Telegram opened usetenth, but sign-in did not go through. Close it and open it again from the bot." onRetry={retrySignIn} retry />
+    );
+  }
   return ready && signedIn ? <>{children}</> : <Splash />;
 }
 
