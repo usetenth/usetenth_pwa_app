@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { RequireActive } from "@/components/Guard";
 import { BellLink, Card, ErrorCard, NavTile, PrimaryButton, Screen, SecondaryButton, ThemeToggle } from "@/components/ui";
-import { fetchHoldings, fetchMe, fetchNotifications, fetchPortfolio, fetchRule } from "@/lib/api";
+import { fetchHoldings, fetchMe, fetchNotifications, fetchPending, fetchPortfolio, fetchRule } from "@/lib/api";
 import { SAMPLE_PAYMENT } from "@/lib/config";
 import { useLoad } from "@/lib/hooks";
 import { cleanName, PERCENTS } from "@/lib/mixes";
 import { isNegative, percentOf, signedUsd, usd } from "@/lib/money";
+import { pendingLines, proceedsComing, sellingKeys } from "@/lib/pending";
 import { telegramFirstName } from "@/lib/telegram";
 
 function Portfolio() {
@@ -16,6 +17,10 @@ function Portfolio() {
   const rule = useLoad(fetchRule);
   const me = useLoad(fetchMe);
   const notices = useLoad(fetchNotifications, null, true, 15_000);
+  const pending = useLoad(fetchPending, null, true, 5_000);
+  const lines = pendingLines(pending.data);
+  const selling = sellingKeys(pending.data);
+  const coming = proceedsComing(pending.data);
 
   const percent = rule.data?.percentage ?? 10;
   const nextPercent = PERCENTS.find((p) => p > percent);
@@ -73,10 +78,28 @@ function Portfolio() {
             <div className="text-right">
               <p className="text-sm text-mute">Ready to withdraw</p>
               <p className="num text-2xl">{usd(p.cash)}</p>
+              {selling.size > 0 ? <p className="num text-xs text-mute">+ {usd(coming)} from sales</p> : null}
             </div>
           </Card>
         </>
       )}
+
+      {lines.length > 0 ? (
+        <div>
+          <h2 className="mb-2 px-1 text-sm text-mute">In progress</h2>
+          <Card className="divide-y divide-line p-0">
+            {lines.map((l) => (
+              <div key={l.key} className="flex items-start gap-3 px-4 py-3">
+                <span aria-hidden className="mt-1.5 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-violet" />
+                <div className="min-w-0">
+                  <p className="font-medium">{l.title}</p>
+                  <p className="text-sm text-mute">{l.detail}</p>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </div>
+      ) : null}
 
       <div>
         <h2 className="mb-2 px-1 text-sm text-mute">Holdings</h2>
@@ -95,7 +118,11 @@ function Portfolio() {
                   <p className="num text-sm text-mute">{h.available} {h.symbol}</p>
                 </div>
                 <p className="num">{h.value_usd !== null ? usd(h.value_usd) : "-"}</p>
-                <Link href={`/sell?asset=${encodeURIComponent(h.asset_key)}`} className="rounded-full border border-line px-3 py-1.5 text-sm font-medium text-violet">Sell</Link>
+                {selling.has(h.asset_key) ? (
+                  <span className="rounded-full border border-line px-3 py-1.5 text-sm text-mute">Selling…</span>
+                ) : (
+                  <Link href={`/sell?asset=${encodeURIComponent(h.asset_key)}`} className="rounded-full border border-line px-3 py-1.5 text-sm font-medium text-violet">Sell</Link>
+                )}
               </div>
             ))}
           </Card>

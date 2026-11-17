@@ -55,6 +55,29 @@ export interface Holding {
   value_usd: string | null;
 }
 
+export interface PendingDeposit {
+  id: string;
+  stage: "confirming" | "investing";
+  asset: string;
+  amount_usd: string | null;
+  invest_usd?: string;
+  since: string;
+}
+
+export interface PendingSale {
+  id: string;
+  asset_key: string;
+  asset: string | null;
+  qty: string | null;
+  amount_usd: string;
+  since: string;
+}
+
+export interface PendingView {
+  deposits: PendingDeposit[];
+  sales: PendingSale[];
+}
+
 export interface DepositView {
   asset: string;
   default_network: string;
@@ -227,6 +250,7 @@ export const markNotificationsRead = () => post<null>("/v1/notifications/read");
 
 export const fetchPortfolio = (signal?: AbortSignal) => get<PortfolioView>("/v1/portfolio", signal);
 export const fetchHoldings = (signal?: AbortSignal) => get<Holding[]>("/v1/holdings", signal);
+export const fetchPending = (signal?: AbortSignal) => get<PendingView>("/v1/pending", signal);
 export const fetchDeposit = (signal?: AbortSignal) => get<DepositView>("/v1/deposit", signal);
 export const fetchInvestments = (signal?: AbortSignal) => get<InvestmentView[]>("/v1/investments", signal);
 export const fetchOrders = (signal?: AbortSignal) => get<OrderView[]>("/v1/orders", signal);
