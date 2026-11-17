@@ -115,13 +115,13 @@ function Portfolio() {
               <div key={h.asset_key} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{cleanName(h.name)}</p>
-                  <p className="num text-sm text-mute">{h.available} {h.symbol}</p>
+                  <p className="num truncate text-sm text-mute">{shortQty(h.available)} {h.symbol}</p>
                 </div>
-                <p className="num">{h.value_usd !== null ? usd(h.value_usd) : "-"}</p>
+                <p className="num shrink-0">{h.value_usd !== null ? usd(h.value_usd) : "-"}</p>
                 {selling.has(h.asset_key) ? (
-                  <span className="rounded-full border border-line px-3 py-1.5 text-sm text-mute">{selling.get(h.asset_key) === "selling" ? "Selling…" : "Updating…"}</span>
+                  <span className="shrink-0 rounded-full border border-line px-3 py-1.5 text-sm text-mute">{selling.get(h.asset_key) === "selling" ? "Selling…" : "Updating…"}</span>
                 ) : (
-                  <Link href={`/sell?asset=${encodeURIComponent(h.asset_key)}`} className="rounded-full border border-line px-3 py-1.5 text-sm font-medium text-violet">Sell</Link>
+                  <Link href={`/sell?asset=${encodeURIComponent(h.asset_key)}`} className="shrink-0 rounded-full border border-line px-3 py-1.5 text-sm font-medium text-violet">Sell</Link>
                 )}
               </div>
             ))}
@@ -140,6 +140,11 @@ function Portfolio() {
       ) : null}
     </Screen>
   );
+}
+
+function shortQty(q: string) {
+  const n = Number(q);
+  return Number.isFinite(n) ? String(Number(n.toFixed(6))) : q;
 }
 
 export default function PortfolioPage() {
