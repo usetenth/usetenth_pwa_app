@@ -64,18 +64,21 @@ export interface PendingDeposit {
   since: string;
 }
 
-export interface PendingSale {
+/** A sale or buy still settling, or just finished while the balances catch up (done). */
+export interface PendingTrade {
   id: string;
   asset_key: string;
   asset: string | null;
   qty: string | null;
   amount_usd: string;
   since: string;
+  done: boolean;
 }
 
 export interface PendingView {
   deposits: PendingDeposit[];
-  sales: PendingSale[];
+  sales: PendingTrade[];
+  buys: PendingTrade[];
 }
 
 export interface DepositView {

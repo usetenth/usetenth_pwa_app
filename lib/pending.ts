@@ -1,4 +1,4 @@
-import type { PendingDeposit, PendingSale, PendingView } from "./api";
+import type { PendingDeposit, PendingTrade, PendingView } from "./api";
 import { fromCents, toCents, usd } from "./money";
 
 export interface PendingLine {
@@ -16,14 +16,37 @@ export function depositLine(d: PendingDeposit): PendingLine {
   return { key: d.id, title: "Payment arriving", detail };
 }
 
-export function saleLine(s: PendingSale): PendingLine {
+export function saleLine(s: PendingTrade): PendingLine {
   return { key: s.id, title: `Selling ${s.asset ?? "your stock"}`, detail: `About ${usd(s.amount_usd)} is settling. It lands in your balance when done.` };
 }
 
-export const pendingLines = (p: PendingView | null): PendingLine[] => (p ? [...p.deposits.map(depositLine), ...p.sales.map(saleLine)] : []);
+export function buyLine(b: PendingTrade): PendingLine {
+  const name = b.asset ?? "your stock";
+  return b.done
+    ? { key: b.id, title: `Bought ${name}`, detail: "Adding it to your holdings." }
+    : { key: b.id, title: `Buying ${name}`, detail: `About ${usd(b.amount_usd)} is settling. It shows in your holdings when done.` };
+}
 
-/** The stocks with a sale still settling, so their Sell button can step aside. */
-export const sellingKeys = (p: PendingView | null): Set<string> => new Set((p?.sales ?? []).map((s) => s.asset_key));
+/** Everything still in motion. A finished buy is shown only until the stock appears in the holdings. */
+export function pendingLines(p: PendingView | null, held: Set<string> = new Set()): PendingLine[] {
+  if (!p) return [];
+  return [
+    ...p.deposits.map(depositLine),
+    ...p.sales.filter((s) => !s.done).map(saleLine),
+    ...p.buys.filter((b) => !b.done || !held.has(b.asset_key)).map(buyLine),
+  ];
+}
 
-/** Dollars from sales that have not landed in the balance yet. */
-export const proceedsComing = (p: PendingView | null): string => fromCents((p?.sales ?? []).reduce((sum, s) => sum + toCents(s.amount_usd), BigInt(0)));
+/** Stocks with a sale under way ("selling") or just finished but still held while balances catch up ("updating"). */
+export function sellState(p: PendingView | null): Map<string, "selling" | "updating"> {
+  const state = new Map<string, "selling" | "updating">();
+  for (const s of p?.sales ?? []) {
+    if (!s.done) state.set(s.asset_key, "selling");
+    else if (!state.has(s.asset_key)) state.set(s.asset_key, "updating");
+  }
+  return state;
+}
+
+/** Dollars from sales still settling that have not landed in the balance yet. */
+export const proceedsComing = (p: PendingView | null): string =>
+  fromCents((p?.sales ?? []).filter((s) => !s.done).reduce((sum, s) => sum + toCents(s.amount_usd), BigInt(0)));

@@ -8,7 +8,7 @@ import { SAMPLE_PAYMENT } from "@/lib/config";
 import { useLoad } from "@/lib/hooks";
 import { cleanName, PERCENTS } from "@/lib/mixes";
 import { isNegative, percentOf, signedUsd, usd } from "@/lib/money";
-import { pendingLines, proceedsComing, sellingKeys } from "@/lib/pending";
+import { pendingLines, proceedsComing, sellState } from "@/lib/pending";
 import { telegramFirstName } from "@/lib/telegram";
 
 function Portfolio() {
@@ -18,8 +18,8 @@ function Portfolio() {
   const me = useLoad(fetchMe);
   const notices = useLoad(fetchNotifications, null, true, 15_000);
   const pending = useLoad(fetchPending, null, true, 5_000);
-  const lines = pendingLines(pending.data);
-  const selling = sellingKeys(pending.data);
+  const lines = pendingLines(pending.data, new Set((holdings.data ?? []).map((h) => h.asset_key)));
+  const selling = sellState(pending.data);
   const coming = proceedsComing(pending.data);
 
   const percent = rule.data?.percentage ?? 10;
@@ -78,7 +78,7 @@ function Portfolio() {
             <div className="text-right">
               <p className="text-sm text-mute">Ready to withdraw</p>
               <p className="num text-2xl">{usd(p.cash)}</p>
-              {selling.size > 0 ? <p className="num text-xs text-mute">+ {usd(coming)} from sales</p> : null}
+              {coming !== "0.00" ? <p className="num text-xs text-mute">+ {usd(coming)} from sales</p> : null}
             </div>
           </Card>
         </>
@@ -119,7 +119,7 @@ function Portfolio() {
                 </div>
                 <p className="num">{h.value_usd !== null ? usd(h.value_usd) : "-"}</p>
                 {selling.has(h.asset_key) ? (
-                  <span className="rounded-full border border-line px-3 py-1.5 text-sm text-mute">Selling…</span>
+                  <span className="rounded-full border border-line px-3 py-1.5 text-sm text-mute">{selling.get(h.asset_key) === "selling" ? "Selling…" : "Updating…"}</span>
                 ) : (
                   <Link href={`/sell?asset=${encodeURIComponent(h.asset_key)}`} className="rounded-full border border-line px-3 py-1.5 text-sm font-medium text-violet">Sell</Link>
                 )}
